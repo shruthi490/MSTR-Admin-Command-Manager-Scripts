@@ -1,0 +1,109 @@
+//list all projects
+
+ResultSet oProjectList = executeCapture("LIST ALL PROJECTS;");
+
+oProjectList.moveFirst();
+
+while (!oProjectList.isEof()) {
+
+String sProject = oProjectList.getFieldValueString(NAME);
+
+String status = oProjectList.getFieldValueString(PROJECT_STATUS_2);
+
+//check if this project is loaded or not.
+
+//we do not process projects that are not 'loaded' status
+
+if (status != null && status.equalsIgnoreCase("loaded")) {
+
+// printOut("Processing Loaded Project:" + sProject);
+
+} else {
+
+//printOut("Not Processing Unloaded Project:" + sProject);
+
+oProjectList.moveNext();
+
+continue;
+
+}
+
+// Retrieve the security filter list for Project
+
+ResultSet oResultSet = executeCapture("LIST ALL SECURITY FILTERS FOR PROJECT '" + sProject + "';");
+
+oResultSet.moveFirst();
+
+while (!oResultSet.isEof()) {
+
+String sSecurityFilterName = oResultSet.getFieldValueString(NAME);
+
+String sFolder = oResultSet.getFieldValueString(FOLDER);
+
+String sQuery = "LIST PROPERTIES FOR SECURITY FILTER \"" + sSecurityFilterName +"\" FOLDER \""+sFolder+ "\" FOR PROJECT \"" + sProject +"\";";
+
+ResultSet oResult = executeCapture(sQuery);
+
+oResult.moveFirst();
+
+String sExpression = oResult.getFieldValueString(EXPRESSION);
+
+//List users
+
+ResultSet lUserResultSet = (ResultSet) oResult.getFieldValue(DisplayPropertyEnum.USER_RESULTSET);
+
+if (lUserResultSet.getRowCount() > 0) {
+
+lUserResultSet.moveFirst();
+
+while (!lUserResultSet.isEof()) {
+
+String lLogin = lUserResultSet.getFieldValueString(DisplayPropertyEnum.LOGIN);
+
+// printOut(sProject+";"+sSecurityFilterName+";"+sFolder+";"+sExpression+";"+"Assigned to User;"+";"+lLogin);
+
+lUserResultSet.moveNext();
+
+}
+
+}
+
+// List Groups
+
+ResultSet lUserGroupResultSet = (ResultSet) oResult.getFieldValue(DisplayPropertyEnum.USER_GROUP_RESULTSET);
+
+if (lUserGroupResultSet.getRowCount() > 0) {
+
+lUserGroupResultSet.moveFirst();
+
+while (!lUserGroupResultSet.isEof()) {
+
+String lGroupName = lUserGroupResultSet.getFieldValueString(DisplayPropertyEnum.USER_GROUP);
+
+// printOut(sProject+";"+sSecurityFilterName+";"+sFolder+";"+sExpression+";"+"Assigned to Group;"+lGroupName+";");
+
+lUserGroupResultSet.moveNext();
+
+}
+
+}
+
+// End of list Users and Groups
+
+//List Security Filters that are not assigned to a user or group
+
+if (lUserResultSet.getRowCount()==0&&lUserGroupResultSet.getRowCount()==0) {
+
+printOut("DELETE SECURITY FILTER "+sSecurityFilterName+" FOLDER "+sFolder+" FROM PROJECT "+sProject+";");
+
+}
+
+//End of List Security Filters that are not assigned to a user or group
+
+oResultSet.moveNext();
+
+}
+
+oProjectList.moveNext();
+
+}
