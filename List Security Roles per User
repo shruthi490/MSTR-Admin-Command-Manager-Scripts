@@ -1,0 +1,73 @@
+ResultSet USERS = executeCapture("LIST MEMBERS FOR USER GROUP \"Everyone\";"); //Put whatever group to query here
+
+USERS.moveFirst();
+
+while(!USERS.isEof()){
+
+ResultSet member=(ResultSet)USERS.getFieldValue(MEMBER_RESULTSET);
+
+member.moveFirst();
+
+//go through each members in the group
+
+while(!member.isEof()){
+
+String sUserName = member.getFieldValueString(LOGIN);
+
+ResultSet oProjectList = executeCapture("LIST ALL PROJECTS;");
+
+oProjectList.moveFirst();
+
+while (!oProjectList.isEof()) {
+
+String sProject = oProjectList.getFieldValueString(NAME);
+
+String status = oProjectList.getFieldValueString(PROJECT_STATUS_2);
+
+//check if this project is loaded or not.
+
+//we do not process projects that are not 'loaded' status
+
+if (status != null && status.equalsIgnoreCase("Loaded")) {
+
+String sQuery = "LIST ALL SECURITY ROLES FOR USER \"" + sUserName + "\" IN PROJECT \"" + sProject +"\";";
+
+ResultSet oResultSet = executeCapture(sQuery);
+
+oResultSet.moveFirst();
+
+while(!oResultSet.isEof()){
+
+ResultSet sSecurityRole = (ResultSet)oResultSet.getFieldValue(SECURITY_ROLE_LIST);
+
+sSecurityRole.moveFirst();
+
+while(!sSecurityRole.isEof()){
+
+String sName = sSecurityRole.getFieldValueString(NAME);
+
+printOut(sUserName + " ; " + sProject + " ; " + sName);
+
+sSecurityRole.moveNext();
+
+}
+
+oResultSet.moveNext();
+
+}
+
+// int sCount = oResultSet.getRowCount();
+
+}
+
+oProjectList.moveNext();
+
+}
+
+member.moveNext();
+
+}
+
+USERS.moveNext();
+
+}
