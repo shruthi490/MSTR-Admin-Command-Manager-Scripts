@@ -1,0 +1,57 @@
+ResultSet oCubeCacheList = executeCapture("LIST ALL INTELLIGENT CUBE CACHES;"); 
+
+printOut(oCubeCacheList.getRowCount()); 
+
+oCubeCacheList.moveFirst(); 
+
+while (!oCubeCacheList.isEof()) { 
+
+        String sProject = oCubeCacheList.getFieldValueString(PROJECT); 
+
+        String sName = oCubeCacheList.getFieldValueString(NAME); 
+
+        String sGUID = oCubeCacheList.getFieldValueString(ID); 
+
+        int sHitCount = (int)oCubeCacheList.getFieldValue(HIT_COUNT); 
+
+        Date LastUpdateTime = (Date) oCubeCacheList.getResultCell(DisplayPropertyEnum.LAST_UPDATED_TIME).getValue(); 
+
+        Date Today = new Date(); 
+
+ 
+
+ 
+
+java.time.LocalDate sToday = java.time.LocalDate.parse( new java.text.SimpleDateFormat("yyyy-MM-dd").format(Today) ); 
+
+java.time.LocalDate sLastUpdateTime = java.time.LocalDate.parse( new java.text.SimpleDateFormat("yyyy-MM-dd").format(LastUpdateTime) ); 
+
+ 
+
+int days = java.time.Period.between(sLastUpdateTime,sToday).getDays(); 
+
+int months = java.time.Period.between(sLastUpdateTime,sToday).getMonths(); 
+
+ 
+
+//printOut(sName + sProject + months); 
+
+ 
+
+if (sHitCount == 0 && months > 0) { 
+
+ 
+
+execute("DELETE INTELLIGENT CUBE CACHE GUID "+sGUID + " FOR PROJECT \""+sProject+"\";"); 
+
+//printOut(sName + ";" + sGUID + ";" + sProject + ";" + sHitCount); 
+
+ 
+
+            } 
+
+ 
+
+oCubeCacheList.moveNext(); 
+
+} 
