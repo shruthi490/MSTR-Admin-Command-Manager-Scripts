@@ -1,0 +1,79 @@
+//list login, enabled properties, and fullname for all users
+
+ResultSet oUsers = executeCapture("LIST LOGIN, ENABLED, FULLNAME FOR USERS IN GROUP \"Everyone\";");
+
+//retrieve all projects
+
+ResultSet projects = executeCapture("LIST ALL PROJECTS;");
+
+int subscriptionsDeleted=0;
+
+//iterate through the users
+
+oUsers.moveFirst();
+
+while (!oUsers.isEof()){
+
+Boolean bEnabled = (Boolean)oUsers.getResultCell(DisplayPropertyEnum.ENABLED).getValue();
+
+//only process Disabled users
+
+if ((bEnabled != null) && (! bEnabled.booleanValue())){
+
+String sLogin = oUsers.getResultCell(DisplayPropertyEnum.LOGIN).getValueString();
+
+// printOut("Processing Disabled User '" + sLogin + "'");
+
+projects.moveFirst();
+
+while(!projects.isEof()){
+
+//get status of project first
+
+String status = projects.getFieldValueString(DisplayPropertyEnum.PROJECT_STATUS_2);
+
+if(status.equalsIgnoreCase("Loaded")) {
+
+//only delete subscriptions in loaded projects
+
+String projectName = projects.getFieldValueString(DisplayPropertyEnum.NAME);
+
+// printOut("Processing for project " + projectName);
+
+ResultSet userSubscriptions = executeCapture("LIST ALL SUBSCRIPTIONS FOR OWNER '" + sLogin + "' FOR PROJECT '" + projectName +"';");
+
+userSubscriptions.moveFirst();
+
+while(!userSubscriptions.isEof()){
+
+String subscriptionGUID = userSubscriptions.getFieldValueString(DisplayPropertyEnum.GUID);
+
+String subscriptionName = userSubscriptions.getFieldValueString(DisplayPropertyEnum.NAME);
+
+String command = "DELETE SUBSCRIPTION GUID " + subscriptionGUID + "' FROM PROJECT '" + projectName + "';";
+
+printOut("Deleting subscription " + subscriptionName + " with GUID " + subscriptionGUID + " from project " + projectName + " for user " + sLogin);
+
+// execute(command);
+
+userSubscriptions.moveNext();
+
+subscriptionsDeleted++;
+
+}
+
+}
+
+//move to next row
+
+projects.moveNext();
+
+}
+
+}
+
+oUsers.moveNext();
+
+}
+
+printOut("There were " + subscriptionsDele
