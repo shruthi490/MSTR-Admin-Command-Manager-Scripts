@@ -1,0 +1,33 @@
+ResultSet oUserGroupList = executeCapture("LIST ALL USER GROUPS;");
+
+printOut(oUserGroupList.getRowCount());
+
+oUserGroupList.moveFirst();
+
+while (!oUserGroupList.isEof()) {
+
+String sUserGroupName = oUserGroupList.getFieldValueString(NAME);
+
+String sQuery = "LIST ALL PROPERTIES FOR USER GROUP \"" + sUserGroupName +"\";";
+
+ResultSet oResult = executeCapture(sQuery);
+
+oResult.moveFirst();
+
+while(!oResult.isEof()){
+
+int sGroupCount = (int)oResult.getFieldValue(TOTAL_GROUP_MEMBER_COUNT);
+
+if (sGroupCount ==0) {
+
+printOut(sUserGroupName);
+
+}
+
+oResult.moveNext();
+
+}
+
+oUserGroupList.moveNext();
+
+}
