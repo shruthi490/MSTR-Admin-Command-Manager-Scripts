@@ -1,0 +1,123 @@
+//define database connection and statement and resultset
+  java.sql.Connection connection=null;
+  java.sql.Statement statement=null;
+  java.sql.ResultSet dbResult=null;
+ java.sql.ResultSet dbSendException=null;
+  String userNameColumn=null;
+  String passwordColumn=null;
+  String mstrAccessColumn=null;
+  String userCreatedFlagColumn=null;
+  String tableName=null;
+String createdAccount="<table border=1><tr><td>EmployeeID</td><td>EmployeeName</td><td>EmployeeTitle</td></tr>";
+ 
+  try{
+
+   PropertyResourceBundle config=new PropertyResourceBundle(new FileInputStream(configFile));
+
+   String databaseUrl=config.getString("databaseUrl");
+   String databaseLogin=config.getString("databaseLogin");
+   String databasePassword=config.getString("databasePassword");
+   String databaseDriver=config.getString("databaseDriver");
+
+
+   boolean isValidConfig=true;
+   if(databaseUrl==null || databaseUrl.trim()==""){
+    printErr("databaseUrl can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databaseLogin==null || databaseLogin.trim()==""){
+    printErr("databaseLogin can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databasePassword==null || databasePassword.trim()==""){
+    printErr("databasePassword can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databaseDriver==null || databaseDriver.trim()==""){
+    printErr("databaseDriver can not be null or empty");
+    isValidConfig=false;
+   }
+
+   if(!isValidConfig)
+    return;
+
+
+   Class.forName(databaseDriver).newInstance();
+   connection = java.sql.DriverManager.getConnection(databaseUrl,databaseLogin,databasePassword);
+   statement = connection.createStatement();
+ } 
+
+catch (InstantiationException e) {
+   printErr("Could not load the database driver1");
+   return;
+  } catch (IllegalAccessException e) {
+   printErr("Could not load the database driver2");
+   return;
+  } catch (ClassNotFoundException e) {
+   printErr("Could not load the database driver3");
+   return;
+  } catch (java.sql.SQLException e) {
+   printErr("Could not connect to the database server4");
+   return;
+  }
+
+  //connect to database successfully, let's do action that user asks
+
+   //get all employee who has access to mstr but not was created yet
+
+//
+String query = "select EMPLOYEE_ID,";
+	query=query+"EMPLOYEE_USER_NAME,";
+	query=query+"EMPLOYEE_LEGAL_NAME,";
+	query=query+"EMPLOYEE_TITLE,";
+	query=query+"EMPLOYEE_EMAIL,";
+	query=query+"EMPLOYEE_HIRE_DATE,";
+	query=query+"EMPLOYEE_AD_FLAG,";
+	query=query+"EMPLOYEE_ACTIVE_FLAG";
+	query=query+"FROM NEW_HIRE_EMPLOYEE";
+	query=query+"WHERE EMPLOYEE_ACTIVE_FLAG in (1)";
+	query=query+" and EMPLOYEE_HIRE_DATE between convert(varchar(10),getdate()-"+startDate+",120) and convert(varchar(10),getdate()-"+endDate+",120)";
+
+
+
+ try {
+    dbResult=statement.executeQuery(query);
+    List<String> EmployeeList=new ArrayList<String>();
+//	printOut("Test2");
+
+
+
+    while(dbResult.next()){
+     String employeeid=dbResult.getString("EMPLOYEE_ID");
+     String employeename=dbResult.getString("EMPLOYEE_LEGAL_NAME");
+     String employeetitle=dbResult.getString("EMPLOYEE_TITLE");
+     String email=dbResult.getString("EMPLOYEE_EMAIL");
+     String employeelogin=dbResult.getString("EMPLOYEE_USER_NAME");
+
+	 
+
+    String mstrQuery="CREATE USER \"" +employeelogin+"\" NTLINK \"\\corp\\"+employeelogin+"\"";
+	mstrQuery=mstrQuery+" FULLNAME     \""+employeename+"\";";
+	mstrQuery=mstrQuery+"ALTER USER \""+employeelogin+"\" TRUSTEDLOGIN \""+employeelogin+"\";";
+	mstrQuery=mstrQuery+"ADD USER \"" +employeelogin+"\" TO GROUP \"Merit Access For Survey\" ;";
+	mstrQuery=mstrQuery+"ADD USER \"" +employeelogin+"\" TO GROUP \"LDAP Users\" ;";
+	mstrQuery=mstrQuery+"ALTER ACE FOR USER \"" +employeelogin+"\" GROUP \"Everyone\" ACCESSRIGHTS CUSTOM GRANT BROWSE, READ;";
+
+     if(execute(mstrQuery)!=ErrorHandler.EXIT_CODE_SUCCESS){
+      printErr("The user "+employeename+" with id "+employeeid+"' is not created successfully");
+      continue;
+     }
+
+      createdAccount=createdAccount+"<tr><td>"+employeeid+"</td><td>"+employeename+"</td><td>"+employeetitle+"</td></tr>";
+
+    }
+    //close resultset for updating
+    dbResult.close();
+    createdAccount=createdAccount+"</table>";
+   } catch (java.sql.SQLException e) {
+    printErr("Got Error when executing query!");
+   // printErr(e.getMessage());
+ }
+
+statement.close();
+connection.close();
