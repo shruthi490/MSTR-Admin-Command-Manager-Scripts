@@ -1,0 +1,156 @@
+//define database connection and statement and resultset
+  java.sql.Connection connection=null;
+  java.sql.Statement statement=null;
+  java.sql.ResultSet dbResult=null;
+  java.sql.ResultSet dbSendException=null;
+  //define variables extracted from the config file
+  String userNameColumn=null;
+  String passwordColumn=null;
+  String mstrAccessColumn=null;
+  String userCreatedFlagColumn=null;
+  String tableName=null;
+  String deletedAccount="<table border=1><tr><td>EmployeeID</td><td>EmployeeName</td><td>JobType</td><td>BUName</td><td>GroupName</td><td>Deleted</td></tr>";
+
+  try{
+   //extract information from the config file
+   PropertyResourceBundle config=new PropertyResourceBundle(new FileInputStream(configFile));
+
+   String databaseUrl=config.getString("databaseUrl");
+   String databaseLogin=config.getString("databaseLogin");
+   String databasePassword=config.getString("databasePassword");
+   String databaseDriver=config.getString("databaseDriver");
+
+
+   //verify if those information in the config file is valid 
+   boolean isValidConfig=true;
+   if(databaseUrl==null || databaseUrl.trim()==""){
+    printErr("databaseUrl can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databaseLogin==null || databaseLogin.trim()==""){
+    printErr("databaseLogin can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databasePassword==null || databasePassword.trim()==""){
+    printErr("databasePassword can not be null or empty");
+    isValidConfig=false;
+   }
+   if(databaseDriver==null || databaseDriver.trim()==""){
+    printErr("databaseDriver can not be null or empty");
+    isValidConfig=false;
+   }
+
+   if(!isValidConfig)
+    return;
+
+   //let's load driver and create connection
+   Class.forName(databaseDriver).newInstance();
+   connection = java.sql.DriverManager.getConnection(databaseUrl,databaseLogin,databasePassword);
+   statement = connection.createStatement();
+  }
+//catch(IOException ioe){
+   //printErr("Please provide a valid configuration file");
+   //return;
+//  } 
+catch (InstantiationException e) {
+   printErr("Could not load the database driver");
+   return;
+  } catch (IllegalAccessException e) {
+   printErr("Could not load the database driver");
+   return;
+  } catch (ClassNotFoundException e) {
+   printErr("Could not load the database driver");
+   return;
+  } catch (java.sql.SQLException e) {
+   printErr("Could not connect to the database server");
+   return;
+  }
+
+  //connect to database successfully, let's do action that user asks
+
+   //get all employee who has access to mstr but not was created yet
+
+        String query="select    distinct a11.employee_id  employee_id,a11.employee_desc employee_desc,a16.job_type_id  job_type_id,a16.job_type_desc  job_type_desc,";
+		query=query+"a11.business_unit_id  business_unit_id,a13.business_unit_desc  business_unit_desc,a12.employee_hire_date  employee_hire_date,";
+		query=query+"a11.end_date  end_date,a12.employee_leave_date  employee_leave_date,";
+		query=query+"case when a12.employee_NTlogin is null then case when charindex('OLD',a12.employee_email_desc)=1 then substring(a12.employee_email_desc,4,charindex('@',a12.employee_email_desc)-4)";
+		query=query+"else substring(a12.employee_email_desc,1,charindex('@',a12.employee_email_desc)-1) end else a12.employee_NTlogin end as Account_name";
+		query=query+" from  FACT_EMPLOYEE_HISTORY  a11, LOOKUP_EMPLOYEE a12,LOOKUP_BUSINESS_UNIT  a13,FACT_EMPLOYEE_JOBTYPE a17, LOOKUP_JOB_TYPE   a16";
+		query=query+" where a11.employee_id = a12.employee_id and a11.business_unit_id = a13.business_unit_id and a11.employee_id=a17.employee_id ";
+		query=query+" and a17.current_job_type_id=a16.job_type_id";
+		query=query+" and a12.employee_leave_date between convert(varchar(10),getdate()-"+startDate+",120) ";
+		query=query+" and convert(varchar(10),getdate()-"+endDate+",120) and a11.end_date between (a12.employee_leave_date - 15) and (a12.employee_leave_date + 100) ";
+		//query=query+" and a11.employee_id=6600";
+		query=query+" order by a11.employee_id";
+
+
+   try {
+    dbResult=statement.executeQuery(query);
+
+    while(dbResult.next()){
+     String employeeid=dbResult.getString("employee_id");
+     String employee=dbResult.getString("employee_desc");
+     String jobtypeid=dbResult.getString("job_type_id");
+     String jobtype=dbResult.getString("job_type_desc");
+     String buid=dbResult.getString("business_unit_id");
+     String budesc=dbResult.getString("business_unit_desc");
+     String account=dbResult.getString("Account_name");
+
+ //list all user with ldap
+	query="LIST ALL PROPERTIES FOR USER \""+account+"\";";
+
+     if(execute(query)!=ErrorHandler.EXIT_CODE_SUCCESS){
+      printErr("The user ' "+employee+" ' with id '"+employeeid+"' is not found ");
+     deletedAccount=deletedAccount+"<tr><td>"+employeeid+"</td><td>"+employee+"</td><td>"+jobtype+"</td><td>"+budesc+"</td><td>UNKNOWN</td><td>The user "+employee+" with id "+employeeid+" is not found.</td></tr>";
+      continue;
+       }
+     else{
+		ResultSet properties=executeCapture(query);
+		properties.moveFirst();
+ 
+		while(!properties.isEof()){
+		ResultSet groups=(ResultSet)properties.getFieldValue(DisplayPropertyEnum.USER_GROUP_RESULTSET);
+		groups.moveFirst();
+  //process users 
+		while(!groups.isEof()){   
+		   String group=(String)groups.getFieldValue(DisplayPropertyEnum.USER_GROUP);
+
+		   if(!group.equals("Everyone")){
+				if(!group.equals("Inactive Group")){
+					   String mstrQuery="REMOVE USER \"" +account+"\" FROM GROUP \""+group+"\";";
+					   mstrQuery=mstrQuery+" ADD USER \""+account+"\" TO GROUP \"Inactive Group\";";
+					   mstrQuery=mstrQuery+" ALTER USER \""+account+"\" DISABLED;";
+  //printOut(mstrQuery);
+					if(execute(mstrQuery)!=ErrorHandler.EXIT_CODE_SUCCESS){
+					      printErr("The user ' "+employee+" ' with id '"+employeeid+"' is not deleted successfully");
+					      deletedAccount=deletedAccount+"<tr><td>"+employeeid+"</td><td>"+employee+"</td><td>"+jobtype+"</td><td>"+budesc+"</td><td>"+group+"</td><td>Failed</td></tr>";
+					      groups.moveNext();
+ 					      continue;
+						}
+						else{
+							deletedAccount=deletedAccount+"<tr><td>"+employeeid+"</td><td>"+employee+"</td><td>"+jobtype+"</td><td>"+budesc+"</td><td>"+group+"</td><td>Successed</td></tr>";
+						}
+				}
+			}
+			groups.moveNext();
+		}
+		properties.moveNext();
+		}
+	}
+ }
+    //close resultset for updating
+    dbResult.close();
+    deletedAccount=deletedAccount+"</table>";
+   } catch (java.sql.SQLException e) {
+    printErr("Got Error when executing query!'");
+   // printErr(e.getMessage());
+   }
+  
+
+//  String spquery="exec sp_SendAlertWhenGotUnknowGroup '"+startDate+"','"+endDate+"','"+deletedAccount.replace("'","''")+"','DELETE'";
+// // statement.executeQuery(spquery);      
+//  //dbSendException.close();
+//
+//statement.executeUpdate(spquery);
+  statement.close();
+  connection.close();
