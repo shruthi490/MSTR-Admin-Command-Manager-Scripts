@@ -1,0 +1,27 @@
+
+ResultSet oUsers = executeCapture("LIST ALL PROPERTIES FOR USERS IN GROUP \"Everyone\";");
+printOut("There are " + oUsers.getRowCount() + " total users");
+oUsers.moveFirst();   
+while (!oUsers.isEof()){
+	String sUserLogin = oUsers.getFieldValueString(DisplayPropertyEnum.LOGIN);
+	String sUserName = oUsers.getFieldValueString(DisplayPropertyEnum.FULL_NAME); 
+	Boolean bEnabled = (Boolean)oUsers.getResultCell(DisplayPropertyEnum.ENABLED).getValue();
+       	ResultSet oUserAddresses = (ResultSet)oUsers.getFieldValue(DisplayPropertyEnum.DS_ADDRESSES_RESULTSET);
+	if((oUserAddresses.getRowCount()==0) && (bEnabled.booleanValue())){
+		printOut("User " + sUserLogin + " is enabled and has NO address.");
+		String lEmailAddress = sUserLogin + "@microstrategy.com";
+		int lResult = execute("ADD ADDRESS \"" + sUserName+ "\" " 
+			+ "PHYSICALADDRESS \"" + lEmailAddress + "\" " 
+			+ "DELIVERYTYPE EMAIL " 
+			+ "DEVICE \"Generic Email\" " 
+			+ "TO USER \"" + sUserLogin + "\" ; ");
+		if(lResult == ErrorHandler.EXIT_CODE_SUCCESS){
+			printOut("Address succesfully added to: " + sUserLogin);
+		}else{
+			//something wrong with adding address process
+			printErr("Failed to add address to: " + sUserLogin);
+		}  
+		
+	}
+	oUsers.moveNext();
+}
