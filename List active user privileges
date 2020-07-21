@@ -1,0 +1,34 @@
+//list login and enbabled properties for all users 
+ResultSet oUsers = executeCapture("LIST LOGIN, ENABLED FOR USERS IN GROUP \"Everyone\";");
+printOut("There are " + oUsers.getRowCount() + " listed users");
+
+oUsers.moveFirst();
+while (!oUsers.isEof()){
+	Boolean bEnabled = (Boolean)oUsers.getResultCell(DisplayPropertyEnum.ENABLED).getValue();
+	
+	if ((bEnabled != null) && (bEnabled.booleanValue())){
+		String sLogin = oUsers.getResultCell(DisplayPropertyEnum.LOGIN).getValueString();
+		ResultSet oPrivilege = executeCapture("LIST All privileges FOR USER \"" + sLogin + "\";");
+		
+		
+		oPrivilege.moveFirst();
+		while(!oPrivilege.isEof()){
+		String oCategory = oPrivilege.getFieldValueString(CATEGORY_NAME);
+		
+		
+		ResultSet oPrivilegegroup=(ResultSet)oPrivilege.getResultCell(DisplayPropertyEnum.PRIVILEGES).getValue();
+		
+		
+		oPrivilegegroup.moveFirst();	
+	         	while(!oPrivilegegroup.isEof()){
+		String oPrivilegeName = oPrivilegegroup.getFieldValueString(PRIVILEGE_NAME);
+		printOut(sLogin+ "|" +oCategory+ "|" +oPrivilegeName);
+		
+		oPrivilegegroup.moveNext();
+		}
+
+		oPrivilege.moveNext();
+		}
+	}
+	oUsers.moveNext();
+}
